@@ -15,6 +15,14 @@
  */
 
 #include QMK_KEYBOARD_H
+
+enum custom_keycodes {
+    KC_LMOD = SAFE_RANGE,  // Lighting Mode toggle
+};
+
+// Forward declaration of lighting mode functions
+extern uint8_t get_lighting_mode(void);
+extern void cycle_lighting_mode(void);
 // clang-format off
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
@@ -32,7 +40,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 		_______, KC_2G4,  KC_BT1,  KC_BT2,  KC_BT3,  _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,
 		_______, TO(2),   _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,          _______,
 		_______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,                   _______,          RGB_VAI,
-		_______, GU_TOGG, _______,                            _______,                            _______, _______, _______, _______, RGB_SPD, RGB_VAD, RGB_SPI),
+		KC_LMOD, GU_TOGG, _______,                            _______,                            _______, _______, _______, _______, RGB_SPD, RGB_VAD, RGB_SPI),
 
     [2] = LAYOUT_ansi( /* Base */
 		KC_ESC,  KC_BRID, KC_BRIU,G(KC_TAB),G(KC_H),G(KC_SPC),G(S(KC_3)),KC_MPRV,KC_MPLY,KC_MNXT, KC_MUTE, KC_VOLD, KC_VOLU, KC_F13,  KC_PSCR, KC_SCRL, KC_PAUS,
@@ -59,3 +67,17 @@ const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][2] = {
     [3] = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU) },
 };
 #endif
+
+// Process custom keycodes
+bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    switch (keycode) {
+        case KC_LMOD:
+            if (record->event.pressed) {
+                // Cycle through lighting modes
+                cycle_lighting_mode();
+                return false;
+            }
+            break;
+    }
+    return true;
+}

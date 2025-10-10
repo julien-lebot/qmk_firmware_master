@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include QMK_KEYBOARD_H
+#include "lighting_modes\lighting_modes.h"
 
 #ifdef WIRELESS_ENABLE
 #    include "wireless.h"
@@ -460,15 +461,20 @@ void rgb_matrix_wls_indicator(void) {
 }
 #    endif
 
-bool rgb_matrix_indicators_advanced_kb(uint8_t led_min, uint8_t led_max) {
+// Initialize lighting mode from EEPROM
+void keyboard_post_init_user(void) {
+    // Initialize lighting system
+    lighting_init();
+}
 
+// Main RGB matrix indicators function
+bool rgb_matrix_indicators_advanced_kb(uint8_t led_min, uint8_t led_max) {
     if (rgb_matrix_indicators_advanced_user(led_min, led_max) != true) {
         return false;
     }
 
-    if (host_keyboard_led_state().caps_lock) {
-        rgb_matrix_set_color(51, 0x77, 0x77, 0x77);
-    }
+    // Apply the current lighting mode
+    apply_current_lighting_mode();
 
 #    ifdef WIRELESS_ENABLE
     rgb_matrix_wls_indicator();

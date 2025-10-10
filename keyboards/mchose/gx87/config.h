@@ -3,6 +3,20 @@
 
 #pragma once
 
+// Custom lighting modes
+#define LIGHTING_MODE_DEFAULT 0    // Default RGB effects
+#define LIGHTING_MODE_MINIMAL 1    // Backlight off, only indicators
+#define LIGHTING_MODE_SUBTLE  2    // Subtle white backlight
+#define LIGHTING_MODE_LAYERS  3    // Layer-based lighting
+#define LIGHTING_MODE_COUNT   4    // Total number of modes
+
+// Status indicator LEDs
+#define STATUS_LED_FIRST  88
+#define STATUS_LED_SECOND 89
+#define STATUS_LED_THIRD  90
+#define STATUS_LED_FOURTH 91
+#define CAPS_LOCK_LED_INDEX 51
+
 #ifdef WIRELESS_ENABLE
 #    define LPWR_TIMEOUT RGB_MATRIX_TIMEOUT
 #    define WLS_KEYBOARD_REPORT_KEYS 5
@@ -40,3 +54,13 @@
 
 #define RGB_MATRIX_FRAMEBUFFER_EFFECTS
 #define RGB_MATRIX_KEYPRESSES
+
+// Status indicator LEDs identified through testing
+// These are the 4 LEDs that make up the status indicator strip
+#define STATUS_LED_1    88
+#define STATUS_LED_2    89
+#define STATUS_LED_3    90
+#define STATUS_LED_4    91
+
+// Total number of LEDs in the keyboard
+#define LED_COUNT 93

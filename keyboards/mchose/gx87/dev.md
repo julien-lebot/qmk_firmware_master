@@ -34,6 +34,12 @@ Four LEDs at coordinates:
 - (218, 42)
 Used for: Caps Lock, Num Lock, Scroll Lock, and Wireless/Battery status
 
+Through testing, we've identified:
+- LED indices 88, 89, 90, and 91 correspond to the status indicator strip (likely at position (218, 42))
+  - These are defined in code as `enum status_indicator_leds` in gx87.c
+  - All 4 LEDs need to be set to the same color to create a uniform appearance
+- LED index 51 corresponds to the Caps Lock LED
+
 ### Battery & Power Management
 
 1. **Hardware Pins**
@@ -101,10 +107,21 @@ The keyboard uses a custom wireless module with the following features:
 - Mac OS Alt/Win key swapping functional
 
 3. **VIA Support**
-- VIA support has been implemented in the `via` keymap
+- VIA support has been implemented in the default keymap
 - Custom keycodes for Bluetooth and 2.4GHz functionality are included
 - Four layers are available for customization
 - RGB matrix controls are accessible through VIA
+
+4. **Custom Lighting Modes**
+- Four lighting modes implemented in separate files:
+  - **Default**: Standard RGB matrix effects with blue status indicator (`lighting_modes/default_mode.c`)
+  - **Minimal**: All LEDs off except indicators (`lighting_modes/minimal_mode.c`)
+  - **Subtle**: Low brightness white backlight with clear indicators (`lighting_modes/subtle_mode.c`)
+  - **Layer-based**: Different colors for each layer (`lighting_modes/layers_mode.c`)
+- Central lighting manager to coordinate modes (`lighting_modes/lighting_manager.c`)
+- Toggle between modes using the `KC_LMOD` key (left Ctrl in Fn layer)
+- Current mode is saved to EEPROM and persists across reboots
+- All modes maintain the status indicator LEDs (blue) and Caps Lock indicator (red)
 
 ## Known Issues
 
