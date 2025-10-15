@@ -2,184 +2,160 @@
 
 This document contains technical details and findings from reverse engineering the MCHOSE GX87 keyboard.
 
-## Hardware Configuration
+## Hardware Specifications
+
+### Microcontroller
+- **MCU**: WB32FQ95
+- **Architecture**: ARM Cortex-M3
+- **Clock Speed**: 96MHz (configured in mcuconf.h)
+- **Flash Memory**: External SPI Flash used for EEPROM emulation via wear leveling
+
+### Matrix Configuration
+- **Matrix Size**: 6 rows × 18 columns
+- **Diode Direction**: ROW2COL
+- **Row Pins**: B15, C6, C7, C8, C9, B14
+- **Column Pins**: C1, C2, C3, A0, A1, A2, A3, A4, A5, A6, A7, C4, C5, B0, B1, B2, B10, B11
+- **Layout**: TKL (87-key) ANSI layout
+
+### Communication Interfaces
+- **USB**: Full-speed USB with VID: 0xFFFE, PID: 0x006F
+- **I2C**: Used for LED driver communication
+  - Speed: 400kHz
+  - Mode: OPMODE_I2C
+- **SPI**: Used for external flash memory
+  - QSPI interface
+  - Pins: SCK (B3), MOSI (B5), MISO (B4)
+  - Slave Select: C12
+- **UART**: Used for wireless module communication
+  - TX Pin: A9
+  - RX Pin: A10
 
 ### LED System
-
-The keyboard uses a sophisticated LED setup with multiple types of indicators:
-
-1. **Main Backlight LEDs**
-- Driver: SNLED27351 (dual controller setup)
+- **LED Driver**: SNLED27351 (dual controller setup)
   - Address 1: 0b1110100 (0x74)
   - Address 2: 0b1110111 (0x77)
-- Configuration in `keyboard.json`: `rgb_matrix.driver: "snled27351"`
-- Per-key RGB LEDs (marked with `flags: 4` in layout)
-- Total of 87 individually addressable RGB LEDs
+- **LED Count**: 93 total LEDs
+  - 87 per-key RGB LEDs
+  - 4 status indicator LEDs (indices 88-91)
+  - 2 additional indicator LEDs
+- **LED Power Control**: Pin A15 (LED_POWER_EN_PIN)
 
-2. **Special Indicator LEDs** (`flags: 1` in layout)
-These LEDs form a multi-function indicator strip:
-- Tab key area: `[2, 0]`
-- Caps Lock area: `[3, 0]`
-- Left Shift area: `[4, 0]`
-- Bottom row modifiers: 
-  - Left side: `[5, 0]`, `[5, 1]`, `[5, 2]`
-  - Right side: `[5, 9]`, `[5, 10]`, `[5, 11]`
-- Arrow key area: `[5, 13]`, `[5, 14]`, `[5, 15]`, `[5, 16]`
+### Wireless Module
+- **Wireless Capabilities**:
+  - Bluetooth (supports up to 3 devices)
+  - 2.4GHz wireless
+  - USB (wired mode)
+- **Control Pins**:
+  - BT_MODE_SW_PIN: C0 (Low when active)
+  - RF_MODE_SW_PIN: C15 (Low when active)
+- **Battery Management**:
+  - BT_CABLE_PIN: B8 (High when charging cable connected)
+  - BT_CHARGE_PIN: B9 (Low when charging, High when fully charged)
+- **USB Power Control**: Pin A14 (USB_POWER_EN_PIN)
 
-3. **Dedicated Status LEDs** (`flags: 2` in layout)
-Four LEDs at coordinates:
-- (181, 42)
-- (193, 42)
-- (206, 42)
-- (218, 42)
-Used for: Caps Lock, Num Lock, Scroll Lock, and Wireless/Battery status
+### Power Management
+- **Sleep Timeout**: Configured for 30 minutes (1800000ms)
+- **Low Power Mode**: Uses a custom implementation in `lowpower.c`
+- **Wake Sources**: Matrix key press, UART RX
 
-Through testing, we've identified:
-- LED indices 88, 89, 90, and 91 correspond to the status indicator strip (likely at position (218, 42))
-  - These are defined in code as `enum status_indicator_leds` in gx87.c
-  - All 4 LEDs need to be set to the same color to create a uniform appearance
-- LED index 51 corresponds to the Caps Lock LED
+## Firmware Architecture
 
-### Battery & Power Management
+### Core Components
+1. **Matrix Scanning**: Standard QMK implementation with ROW2COL diode direction
+2. **LED Control**: Uses RGB Matrix with custom lighting modes
+3. **Wireless Module**: Custom implementation with protocol defined in `wireless.c`
+4. **Power Management**: Custom implementation in `lowpower.c` and `lpwr_wb32.c`
 
-1. **Hardware Pins**
-```c
-#define BT_CABLE_PIN B8   // High when charging cable connected
-#define BT_CHARGE_PIN B9  // Low when charging, High when fully charged
-```
+### Custom Features
+1. **Lighting Modes**:
+   - Default: Standard RGB matrix effects
+   - Minimal: Backlight off, only indicators
+   - Subtle: Subtle white backlight
+   - Layers: Layer-based lighting with different colors per layer
+   - Mode switching via custom keycode KC_LMOD
 
-2. **Power Control Pins**
-```c
-#define USB_POWER_EN_PIN A14
-#define LED_POWER_EN_PIN A15
-```
+2. **Wireless Protocol**:
+   - Custom protocol for communicating with wireless module
+   - Commands for device selection, pairing, and power management
+   - Battery status reporting
 
-3. **Mode Switch Pins**
-```c
-#define BT_MODE_SW_PIN C0  // Low when active
-#define RF_MODE_SW_PIN C15 // Low when active
-```
+3. **Power Management**:
+   - Custom low power mode implementation
+   - Sleep timeout configurable via LPWR_TIMEOUT
+   - Multiple power states: NORMAL, PRESLEEP, STOP, WAKEUP
 
-### Wireless Module Interface
+## Hardware Similarities to Other Keyboards
 
-The keyboard uses a custom wireless module with the following features:
+Based on the hardware configuration, the MCHOSE GX87 appears to be similar to other keyboards in these ways:
 
-1. **Connection Modes**
-- USB
-- Bluetooth (up to 3 devices)
-- 2.4GHz wireless
+1. **MCU**: The WB32FQ95 is a Chinese ARM Cortex-M3 microcontroller that's becoming more common in Chinese mechanical keyboards. It's similar to:
+   - STM32F303 (used in many custom keyboards)
+   - GD32F303 (Chinese clone of STM32)
 
-2. **Battery Commands**
-- Send Commands:
-  ```c
-  MD_SND_CMD_DEVCTRL_CHARGING      = 0x64  // Battery power control
-  MD_SND_CMD_DEVCTRL_CHARGING_STOP = 0x65  // Battery power control
-  MD_SND_CMD_DEVCTRL_CHARGING_DONE = 0x66  // Battery power control
-  ```
-- Receive Commands:
-  ```c
-  MD_REV_CMD_DEVCTRL_BAT_LOW    = 0x21  // Currently unused
-  MD_REV_CMD_DEVCTRL_BAT_NORMAL = 0x23  // Currently unused
-  MD_REV_CMD_BATVOL             = 0x5C  // Battery voltage
-  ```
+2. **LED Driver**: The SNLED27351 is a common LED driver used in many RGB keyboards, including:
+   - Keychron Q-series keyboards
+   - GMMK Pro
+   - Many other Chinese RGB keyboards
 
-3. **Power Management Features**
-- Auto sleep after 30 minutes in BT/2.4G modes
-- Commands for sleep control:
-  ```c
-  MD_SND_CMD_DEVCTRL_SLEEP_BT_EN   = 0x55  // 30min timeout in BT mode
-  MD_SND_CMD_DEVCTRL_SLEEP_BT_DIS  = 0x56
-  MD_SND_CMD_DEVCTRL_SLEEP_2G4_EN  = 0x57  // 30min timeout in 2.4G mode
-  MD_SND_CMD_DEVCTRL_SLEEP_2G4_DIS = 0x58
-  ```
+3. **Wireless Module**: The custom wireless module appears to be similar to those used in:
+   - Keychron K-series wireless keyboards
+   - Royal Kludge wireless keyboards
+   - Epomaker wireless keyboards
 
-## Current Implementation Notes
+4. **Layout and Design**: Standard TKL (87-key) ANSI layout, common among many keyboards:
+   - Ducky One 2
+   - Filco Majestouch 2
+   - Leopold FC750R
 
-1. **Battery Status**
-- Hardware pins (BT_CABLE_PIN, BT_CHARGE_PIN) are defined but not currently used in the QMK firmware
-- Battery status is handled through wireless module commands
-- Current behavior:
-  - Shows green when fully charged
-  - Blinks same color as matrix LEDs when not fully charged
+## Known Issues and Quirks
 
-2. **Layer Functionality**
-- Layer switching works correctly
-- Mac OS Alt/Win key swapping functional
+1. **Sleep/Wake Issues**:
+   - The keyboard may have issues with sleep/wake cycles
+   - Multiple power management systems conflict with each other
+   - Wireless connection may be unstable after waking from sleep
 
-3. **VIA Support**
-- VIA support has been implemented in the default keymap
-- Custom keycodes for Bluetooth and 2.4GHz functionality are included
-- Four layers are available for customization
-- RGB matrix controls are accessible through VIA
+2. **Battery Management**:
+   - Battery status reporting is limited
+   - No proper battery level indication to the host
 
-4. **Custom Lighting Modes**
-- Four lighting modes implemented in separate files:
-  - **Default**: Standard RGB matrix effects with blue status indicator (`lighting_modes/default_mode.c`)
-  - **Minimal**: All LEDs off except indicators (`lighting_modes/minimal_mode.c`)
-  - **Subtle**: Low brightness white backlight with clear indicators (`lighting_modes/subtle_mode.c`)
-  - **Layer-based**: Different colors for each layer (`lighting_modes/layers_mode.c`)
-- Central lighting manager to coordinate modes (`lighting_modes/lighting_manager.c`)
-- Toggle between modes using the `KC_LMOD` key (left Ctrl in Fn layer)
-- Current mode is saved to EEPROM and persists across reboots
-- All modes maintain the status indicator LEDs (blue) and Caps Lock indicator (red)
+3. **Wireless Stability**:
+   - Bluetooth and 2.4GHz connections may be unstable
+   - Custom wireless protocol may have reliability issues
 
-## Known Issues
+## Potential Improvements
 
-1. **Battery Indication**
-- Battery level indication could be improved by using both hardware pins and module commands
-- Current indication (blinking same as matrix) is not very useful for battery level monitoring
+1. **Power Management**:
+   - Consolidate power management code to avoid conflicts
+   - Improve sleep/wake reliability
+   - Add user-configurable sleep timeouts
 
-2. **Fn Key Functions**
-- Many Fn key combinations from stock firmware are not implemented in QMK
+2. **Wireless Stability**:
+   - Improve wireless reconnection after sleep
+   - Better handling of connection switching
 
-## Future Improvements
+3. **Battery Reporting**:
+   - Implement proper battery level reporting to host
+   - Add visual battery level indicators using LEDs
 
-1. **Battery Status**
-- Implement proper battery level reading using both hardware pins and module commands
-- Create distinct LED patterns for different battery states
-- Add battery level reporting to host system
+4. **Firmware Optimization**:
+   - Reduce code complexity in wireless handling
+   - Improve documentation of the custom wireless protocol
+   - Better integration with standard QMK features
 
-2. **LED Indicators**
-- Implement custom LED patterns for different keyboard states
-- Better utilize the multi-function indicator strip
+## Flashing Instructions
 
-3. **Power Management**
-- Implement more granular power management settings
-- Add user-configurable sleep timeouts
+The keyboard uses a WB32 bootloader and can be flashed using:
 
-## VIA Implementation and Testing
-
-VIA support has been implemented directly in the default keymap:
-
-1. **Configuration Files**:
-   - `keyboards/mchose/gx87/keymaps/default/rules.mk`:
-     ```
-     VIA_ENABLE = yes
-     LTO_ENABLE = yes
-     ```
-   - `keyboards/mchose/gx87/keymaps/default/config.h`:
-     ```c
-     #define DYNAMIC_KEYMAP_LAYER_COUNT 4
-     #define VIA_CUSTOM_LIGHTING_ENABLE
-     ```
-
-2. **JSON Definition**: Using the existing `gx87_via.json` file
-
-### Testing VIA Support
-
-After flashing the firmware with the default keymap:
-
-1. Open [usevia.app](https://usevia.app) in a web browser
-2. Click "Authorize device via WebHID"
-3. Select the MCHOSE GX87 from the device list
-4. The keyboard layout should appear and be fully customizable
-5. If the layout doesn't appear automatically, try uploading the `gx87_via.json` file manually
-
-Note: If you're using the VIA desktop app, you may need to add the `gx87_via.json` file to the app's keyboard definitions folder.
-
-To flash the firmware, simply use:
 ```
 make mchose/gx87:default:flash
 ```
 
-The default keymap now includes VIA support, so there's no need for a separate via target.
+To enter bootloader mode:
+1. Hold Fn + Esc while plugging in the keyboard, or
+2. Press the reset button on the PCB (if available)
+
+## Conclusion
+
+The MCHOSE GX87 appears to be a Chinese-manufactured TKL keyboard with wireless capabilities. Its hardware is similar to many other keyboards on the market, particularly those from Keychron, Royal Kludge, and other Chinese manufacturers. The main distinguishing feature is the custom wireless implementation and power management system, which may be the source of some stability issues.
+
+The keyboard uses standard components (WB32 MCU, SNLED27351 LED driver) that are well-supported by QMK, but the custom wireless implementation adds complexity and potential reliability issues. With some firmware improvements, particularly in power management and wireless handling, this could be a solid wireless TKL option.
