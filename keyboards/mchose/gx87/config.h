@@ -17,10 +17,30 @@
 #define STATUS_LED_FOURTH 91
 #define CAPS_LOCK_LED_INDEX 51
 
-#ifdef WIRELESS_ENABLE
-#    define LPWR_TIMEOUT RGB_MATRIX_TIMEOUT
-#    define WLS_KEYBOARD_REPORT_KEYS 5
+// Fix sleep timeout (30 minutes instead of 60 seconds)
+#undef LPWR_TIMEOUT
+#define LPWR_TIMEOUT 900000
 
+#undef RGB_MATRIX_TIMEOUT
+#define RGB_MATRIX_TIMEOUT 900000
+
+// Prevent USB power management issues
+#define NO_SUSPEND_POWER_DOWN
+
+// Basic reliability improvements
+#undef USB_SUSPEND_WAKEUP_DELAY
+#define USB_SUSPEND_WAKEUP_DELAY 1000
+#define DEBOUNCE 10
+
+// Improve wireless reliability
+#define WIRELESS_DEBOUNCE 10
+
+// Ensure RGB matrix is restored after sleep
+#define RGB_MATRIX_SLEEP_KEEPALIVE
+
+#ifdef WIRELESS_ENABLE
+//#    define LPWR_TIMEOUT RGB_MATRIX_TIMEOUT
+#    define WLS_KEYBOARD_REPORT_KEYS 5
 #endif
 
 #define USB_POWER_EN_PIN A14

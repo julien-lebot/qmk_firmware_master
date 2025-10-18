@@ -7,6 +7,7 @@
 #ifdef WIRELESS_ENABLE
 #    include "wireless.h"
 #endif
+
 #ifdef RGB_MATRIX_ENABLE
 const snled27351_led_t PROGMEM g_snled27351_leds[SNLED27351_LED_COUNT] = {
 /* Refer to IS31 manual for these locations
@@ -463,8 +464,8 @@ void rgb_matrix_wls_indicator(void) {
 
 // Initialize lighting mode from EEPROM
 void keyboard_post_init_user(void) {
-    // Initialize lighting system
-    lighting_init();
+    // Temporarily disabled custom lighting system
+    // lighting_init();
 }
 
 // Main RGB matrix indicators function
@@ -473,8 +474,8 @@ bool rgb_matrix_indicators_advanced_kb(uint8_t led_min, uint8_t led_max) {
         return false;
     }
 
-    // Apply the current lighting mode
-    apply_current_lighting_mode();
+    // Temporarily disabled custom lighting mode
+    // apply_current_lighting_mode();
 
 #    ifdef WIRELESS_ENABLE
     rgb_matrix_wls_indicator();
