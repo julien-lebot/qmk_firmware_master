@@ -71,8 +71,10 @@ bool SMART_LAYER_INDICATOR(effect_params_t* params) {
     uint8_t led_min = 0;
     uint8_t led_max = RGB_MATRIX_LED_COUNT;
     
-    // Step 1: Get the current active layer
-    uint8_t active_layer = get_highest_layer(layer_state);
+    // Step 1: Get the current active layer. The default layer (Win/Mac base,
+    // persisted in EEPROM) is not part of layer_state, so OR it in -- after
+    // boot on Mac, layer_state is 0 and only default_layer_state says 2.
+    uint8_t active_layer = get_highest_layer(layer_state | default_layer_state);
     uint8_t base_layer = 0;  // Default base layer
     bool is_fn_active = false;
     

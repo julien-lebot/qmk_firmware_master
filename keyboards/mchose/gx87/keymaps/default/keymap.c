@@ -70,26 +70,12 @@ const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][2] = {
 
 // Persist the Win/Mac base layer across power cycles.
 //
-// TO(0)/TO(2) only set the volatile layer state; QMK saves the *default*
-// layer byte (EECONFIG_DEFAULT_LAYER) at boot, which stays 0 unless something
-// writes it. When the layer state is exactly a base layer (1 = Win, 4 = Mac)
-// record it as the default layer so quantum_init() re-selects it after a
-// replug.
-//
-// State 0 is skipped: that is the boot-time call from quantum_init() before
-// the saved default layer has propagated into layer_state -- writing there
-// would clobber the persisted choice on every boot.
-
-layer_state_t layer_state_set_user(layer_state_t state) {
-    if (state == ((layer_state_t)1 << 0) || state == ((layer_state_t)1 << 2)) {
-        uint8_t selected = (state == ((layer_state_t)1 << 0)) ? 0 : 2;
-        if (((layer_state_t)1 << selected) != eeconfig_read_default_layer()) {
-            eeconfig_update_default_layer((layer_state_t)1 << selected);
-            default_layer_set((layer_state_t)1 << selected);
-        }
-    }
-    return state;
-}
+// TO(0)/TO(2) are intercepted in process_record_user below and turned into
+// set_single_persistent_default_layer(), which writes EECONFIG_DEFAULT_LAYER
+// -- the byte quantum_init() restores at boot. A layer_state_set_user() hook
+// is the wrong place for this: at boot it fires before the default layer is
+// visible in the layer state, and during a switch it fights the action
+// layer cache.
 
 // Process custom keycodes
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
@@ -101,6 +87,21 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                 return false;
             }
             break;
+        // Intercept the VIA-stored TO() base-layer switches and make the
+        // choice persistent instead of a volatile layer-state move.
+        case QK_TO ... QK_TO_MAX: {
+            if (!record->event.pressed) {
+                break;
+            }
+            switch (QK_TO_GET_LAYER(keycode)) {
+                case 0:
+                    set_single_persistent_default_layer(0);
+                    return false;
+                case 2:
+                    set_single_persistent_default_layer(2);
+                    return false;
+            }
+        } break;
     }
     return true;
 }
