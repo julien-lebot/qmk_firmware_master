@@ -8,7 +8,9 @@ This document contains technical details and findings from reverse engineering t
 - **MCU**: WB32FQ95
 - **Architecture**: ARM Cortex-M3
 - **Clock Speed**: 96MHz (configured in mcuconf.h)
-- **Flash Memory**: External SPI Flash used for EEPROM emulation via wear leveling
+- **Flash Memory**: 256KB internal. EEPROM emulation via wear-leveling on the
+  on-chip embedded flash (`wear_leveling`/`embedded_flash`, sectors at the end
+  of flash). The external SPI NOR is no longer used by QMK.
 
 ### Matrix Configuration
 - **Matrix Size**: 6 rows × 18 columns
@@ -107,6 +109,54 @@ Based on the hardware configuration, the MCHOSE GX87 appears to be similar to ot
    - Filco Majestouch 2
    - Leopold FC750R
 
+## Sleep/Wake Behavior (RESOLVED in this branch)
+
+The upstream QMK port (jonylee1986) had a wake-from-host-suspend bug: the
+keyboard went dead when the computer woke from sleep and needed a replug.
+Root causes and fixes, cherry-picked from
+`s-kerdel/qmk_firmware_master` branch `mchose_gx87_fix_wireless_modes`:
+
+1. `WB32_USB_HOST_WAKEUP_DURATION` was 2 ms in `mcuconf.h` -- too short for
+   many hosts to register the remote-wakeup resume signal. Restored to the
+   10 ms chibios-contrib default.
+2. `USB_POWER_EN_PIN` (external D+ pull-up, active low) was driven in
+   `keyboard_post_init_kb()`, after `init_usb_driver()` had already connected
+   the bus; cold boot enumerated against a disabled pull-up. Moved to
+   `keyboard_pre_init_kb()`.
+3. `usb_remote_wakeup()` in `transport.c` had no recovery path when USB never
+   reached `USB_ACTIVE`. A non-blocking recovery FSM now restarts the USB
+   stack automatically (2 s grace, up to 20 attempts), replicating the old
+   manual mode-slider workaround.
+4. `wireless_send_nkro()` busy-waited on `smsg_is_busy()` without a
+   connected-check, freezing the main loop when the wireless module was not
+   ACKing. The override was removed; the QMK default in `wireless.c` handles
+   NKRO correctly.
+5. `smsg_retry` was reset in the wrong state transition, so stuck packets
+   never dropped.
+6. EEPROM moved from the external SPI NOR to on-chip embedded flash -- the
+   SPI-backed wear-leveling was resetting settings on every boot.
+
+Verified on hardware (2026-10): sleep/wake recovers without replug.
+
+## Win/Mac Base Layer Persistence
+
+The VIA keymap stores `TO(0)` (Fn+S) / `TO(2)` (Fn+A) as the base-layer
+switch. These were volatile: every replug booted back to Windows.
+`process_record_user()` now intercepts `QK_TO` for layers 0/2 and calls
+`set_single_persistent_default_layer()`, which writes
+`EECONFIG_DEFAULT_LAYER` -- the byte `quantum_init()` restores at boot.
+Note that a `layer_state_set_user()` hook is the wrong place for this: it
+fires at boot before the default layer is folded into the layer state and
+interferes with the action layer cache during a switch.
+
+Also note: `SMART_LAYER_INDICATOR` must OR `default_layer_state` into its
+layer lookup -- after boot the base layer lives only in
+`default_layer_state`, not in `layer_state`.
+
+Do NOT attempt to persist the base layer by writing the EEPROM byte from a
+layer-state hook; it clobbers itself at boot (see git history,
+commit 1bfce78b9f).
+
 ## Known Issues and Quirks
 
 1. **Sleep/Wake Issues**:
@@ -144,15 +194,33 @@ Based on the hardware configuration, the MCHOSE GX87 appears to be similar to ot
 
 ## Flashing Instructions
 
-The keyboard uses a WB32 bootloader and can be flashed using:
+The keyboard uses the WB32 DFU bootloader (in ROM, cannot be bricked from
+software). Build:
+
+```
+make mchose/gx87:default
+```
+
+Enter the bootloader by holding **Esc** (top-left key, bootmagic) while
+plugging in USB, then:
 
 ```
 make mchose/gx87:default:flash
+# or directly:
+wb32-dfu-updater_cli -s 0x08000000 -D mchose_gx87_default.bin
 ```
 
-To enter bootloader mode:
-1. Hold Fn + Esc while plugging in the keyboard, or
-2. Press the reset button on the PCB (if available)
+On macOS the toolchain via brew needs an explicit PATH for the keg-only
+cross-compiler:
+
+```
+PATH="/opt/homebrew/Cellar/arm-none-eabi-gcc@8/8.5.0_2/bin:/opt/homebrew/Cellar/arm-none-eabi-binutils/2.41/bin:$PATH" \
+  qmk compile -kb mchose/gx87 -km default
+```
+
+After the first flash of this branch, EEPROM storage moves from the external
+SPI flash to on-chip flash: VIA layers/RGB settings reset to defaults once.
+Re-import the VIA JSON (`gx87_via.json`) and re-set lighting preferences.
 
 ## Conclusion
 
