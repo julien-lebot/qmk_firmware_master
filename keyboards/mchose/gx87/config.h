@@ -27,6 +27,12 @@
 // Prevent USB power management issues
 #define NO_SUSPEND_POWER_DOWN
 
+// Completely disable suspend mode
+#define NO_SUSPEND_TO_DEEP_SLEEP
+
+// Disable auto sleep
+#define NO_AUTO_SLEEP_MODE
+
 // Basic reliability improvements
 #undef USB_SUSPEND_WAKEUP_DELAY
 #define USB_SUSPEND_WAKEUP_DELAY 1000
