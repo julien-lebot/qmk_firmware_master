@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include QMK_KEYBOARD_H
-#include "lighting_modes\lighting_modes.h"
+#include "lighting_modes/lighting_modes.h"
 
 #ifdef WIRELESS_ENABLE
 #    include "wireless.h"
