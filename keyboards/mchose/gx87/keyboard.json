@@ -72,7 +72,8 @@
             "solid_color": true,
             "solid_reactive": true,
             "solid_reactive_simple": true,
-            "typing_heatmap": true
+            "typing_heatmap": true,
+            "smart_layer_indicator": true
         },
         "driver": "snled27351",
         "layout": [

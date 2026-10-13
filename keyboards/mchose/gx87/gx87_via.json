@@ -39,7 +39,8 @@
                   ["SOLID_REACTIVE_SIMPLE", 15],
                   ["SOLID_REACTIVE", 16],
                   ["SOLID_REACTIVE_NEXUS", 17],
-                  ["MATRIX_MULTISPLASH", 18]
+                  ["MATRIX_MULTISPLASH", 18],
+                  ["SMART_LAYER_INDICATOR", 35]
                 ]
               },
               {

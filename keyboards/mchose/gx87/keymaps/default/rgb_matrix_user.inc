@@ -7,12 +7,12 @@ RGB_MATRIX_EFFECT(SMART_LAYER_INDICATOR)
 #include "quantum.h"
 #include "../../config.h"
 
-// Layer colors - static for simplicity
-static const uint8_t base_layer_color[3] = {0x10, 0x10, 0x40};  // Subtle blue
-static const uint8_t mac_layer_color[3] = {0x30, 0x00, 0x30};   // Subtle purple
-static const uint8_t fn_key_color[3] = {0xFF, 0x80, 0x00};      // Bright orange
-static const uint8_t caps_lock_color[3] = {0xFF, 0x00, 0x00};   // Bright red
-static const uint8_t status_led_color[3] = {0x00, 0x00, 0xFF};  // Blue
+// Layer colors - variables for easier customization
+static uint8_t base_layer_color[3] = {0x10, 0x10, 0x40};  // Subtle blue
+static uint8_t mac_layer_color[3] = {0x30, 0x00, 0x30};   // Subtle purple
+static uint8_t fn_key_color[3] = {0xFF, 0x80, 0x00};      // Bright orange
+static uint8_t caps_lock_color[3] = {0xFF, 0x00, 0x00};   // Bright red
+static uint8_t status_led_color[3] = {0x00, 0x00, 0xFF};  // Blue
 
 // Matrix dimensions
 #define MATRIX_ROWS 6
@@ -67,7 +67,9 @@ static bool is_key_overridden(uint8_t row, uint8_t col, uint8_t base_layer, uint
 
 // Main effect implementation
 bool SMART_LAYER_INDICATOR(effect_params_t* params) {
-    RGB_MATRIX_USE_LIMITS(led_min, led_max);
+    // Don't use the LED limits for this effect - we want to process all LEDs every time
+    uint8_t led_min = 0;
+    uint8_t led_max = RGB_MATRIX_LED_COUNT;
     
     // Step 1: Get the current active layer
     uint8_t active_layer = get_highest_layer(layer_state);
@@ -89,11 +91,16 @@ bool SMART_LAYER_INDICATOR(effect_params_t* params) {
     bool caps_lock_on = host_keyboard_led_state().caps_lock;
     
     // Step 2: Apply base color based on the base layer (not the active layer)
-    const uint8_t *base_color;
-    if (base_layer == 2) {
-        base_color = mac_layer_color;  // Mac layer
-    } else {
-        base_color = base_layer_color;  // Normal base layer
+    uint8_t *base_color;
+    switch (base_layer) {
+        case 0:  // Normal base layer
+            base_color = base_layer_color;
+            break;
+        case 2:  // Mac base layer
+            base_color = mac_layer_color;
+            break;
+        default:
+            base_color = base_layer_color;
     }
     
     // Apply colors to each LED
@@ -131,13 +138,16 @@ bool SMART_LAYER_INDICATOR(effect_params_t* params) {
             }
         }
         
-        // Set status indicator LEDs
-        if (i >= STATUS_LED_FIRST && i <= STATUS_LED_FOURTH) {
-            rgb_matrix_set_color(i, status_led_color[0], status_led_color[1], status_led_color[2]);
-        }
     }
+    
+    // Set status indicator LEDs explicitly
+    rgb_matrix_set_color(STATUS_LED_FIRST, status_led_color[0], status_led_color[1], status_led_color[2]);
+    rgb_matrix_set_color(STATUS_LED_SECOND, status_led_color[0], status_led_color[1], status_led_color[2]);
+    rgb_matrix_set_color(STATUS_LED_THIRD, status_led_color[0], status_led_color[1], status_led_color[2]);
+    rgb_matrix_set_color(STATUS_LED_FOURTH, status_led_color[0], status_led_color[1], status_led_color[2]);
     
     return false;
 }
+
 
 #endif // RGB_MATRIX_CUSTOM_EFFECT_IMPLS
