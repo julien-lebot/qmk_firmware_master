@@ -68,6 +68,26 @@ const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][2] = {
 };
 #endif
 
+// Persist the Win/Mac base layer across power cycles.
+//
+// TO(0)/TO(2) only set the volatile layer state; QMK saves the *default*
+// layer byte (EECONFIG_DEFAULT_LAYER) at boot, which stays 0 unless something
+// writes it. When the layer state settles on a base layer (0 or 2) with
+// nothing momentary stacked on top, record it as the default layer so
+// quantum_init() re-selects it after a replug.
+
+layer_state_t layer_state_set_user(layer_state_t state) {
+    layer_state_t base = state & ((layer_state_t)1 << 0 | (layer_state_t)1 << 2);
+    if (base == state) { // no transient layers (Fn etc.) active
+        uint8_t selected = base ? 2 : 0;
+        if (((layer_state_t)1 << selected) != eeconfig_read_default_layer()) {
+            eeconfig_update_default_layer((layer_state_t)1 << selected);
+            default_layer_set((layer_state_t)1 << selected);
+        }
+    }
+    return state;
+}
+
 // Process custom keycodes
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     switch (keycode) {
